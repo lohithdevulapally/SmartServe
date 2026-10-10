@@ -7,6 +7,7 @@ import StaffAndPayrollTab from './StaffAndPayrollTab';
 import FinancialsTab from './FinancialsTab';
 import ComplaintsTab from './ComplaintsTab';
 import ReportsExportTab from './ReportsExportTab';
+import CustomerDatabaseTab from './CustomerDatabaseTab';
 import { 
   LayoutDashboard, 
   Utensils, 
@@ -15,7 +16,8 @@ import {
   Users, 
   DollarSign, 
   AlertCircle, 
-  Download 
+  Download,
+  Database
 } from 'lucide-react';
 
 export default function AdminDashboardMain() {
@@ -26,6 +28,7 @@ export default function AdminDashboardMain() {
     { key: 'menu', label: 'Menu & Recipes', icon: Utensils },
     { key: 'inventory', label: 'Inventory & POs', icon: Boxes },
     { key: 'tables', label: 'Tables & Floor', icon: Grid3X3 },
+    { key: 'customers', label: 'Customer Database', icon: Database },
     { key: 'staff', label: 'Staff & Payroll', icon: Users },
     { key: 'financials', label: 'Finances & Profit', icon: DollarSign },
     { key: 'complaints', label: 'Complaints & Reviews', icon: AlertCircle },
@@ -89,6 +92,7 @@ export default function AdminDashboardMain() {
       {activeTab === 'menu' && <MenuManagementTab />}
       {activeTab === 'inventory' && <InventoryManagementTab />}
       {activeTab === 'tables' && <TablesManagementTab />}
+      {activeTab === 'customers' && <CustomerDatabaseTab />}
       {activeTab === 'staff' && <StaffAndPayrollTab />}
       {activeTab === 'financials' && <FinancialsTab />}
       {activeTab === 'complaints' && <ComplaintsTab />}

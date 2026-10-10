@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../services/api';
 import { useApp } from '../../context/AppContext';
-import { X, Award, Gift, ArrowRight, CheckCircle2, History, AlertCircle } from 'lucide-react';
+import { X, Award, Gift, ArrowRight, CheckCircle2, History, AlertCircle, Database } from 'lucide-react';
 
 export default function LoyaltyModal({ onClose }) {
   const { currentUser, addToast, wsEvent } = useApp();
@@ -104,6 +104,22 @@ export default function LoyaltyModal({ onClose }) {
               </div>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                 Earn 10 points for every ₹10 spent on dine-in and online orders.
+              </div>
+              <div style={{
+                marginTop: '8px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: 'rgba(0, 0, 0, 0.45)',
+                border: '1px solid rgba(201, 151, 91, 0.3)',
+                padding: '3px 8px',
+                borderRadius: '6px',
+                fontSize: '0.72rem',
+                color: 'var(--accent-gold-light)',
+                fontFamily: 'monospace'
+              }}>
+                <Database size={12} color="var(--accent-gold)" />
+                <span>Isolated DB: customer_{currentUser?.phone ? currentUser.phone.replace(/\D/g, '') : currentUser?.id}.db</span>
               </div>
             </div>
             <Gift size={48} color="var(--accent-gold)" style={{ opacity: 0.8 }} />

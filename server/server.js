@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import http from 'http';
+import fs from 'fs';
+import path from 'path';
 import { WebSocketServer, WebSocket } from 'ws';
 import {
   db,
@@ -11,9 +13,21 @@ import {
   atomicPlaceOrder,
   logAudit
 } from './db.js';
+import {
+  getCustomerDb,
+  syncCustomerProfile,
+  syncOrderToCustomerDb,
+  getCustomerDbDetails,
+  listAllCustomerDatabases,
+  adjustCustomerLoyalty,
+  updateCustomerAllergies,
+  getCustomerDbFilePath,
+  seedInitialCustomerDatabases
+} from './customerDbManager.js';
 
 // Initialize SQLite schema and seeds
 initDatabase();
+seedInitialCustomerDatabases(db);
 db.exec("UPDATE users SET phone = '9876543210' WHERE username = 'sophia.guest';");
 
 // Migrate prices, wages and coupons to Indian Rupee (₹ INR)
@@ -242,7 +256,14 @@ app.post('/api/auth/customer-login', (req, res) => {
 
   logAudit(cleanName, 'customer', 'CUSTOMER_AUTH', 'user', user.id, `Customer checked in with phone ${cleanPhone}`);
 
-  const safeUser = { ...user };
+  // Synchronize isolated SQLite database for this customer
+  syncCustomerProfile(user);
+
+  const safeUser = { 
+    ...user,
+    db_filename: `customer_${cleanPhone}.db`,
+    db_status: 'ACID Isolated SQLite'
+  };
   delete safeUser.password_hash;
 
   const token = `smartserve_cust_${user.id}_${Date.now()}`;
@@ -876,6 +897,23 @@ app.get('/api/orders/:id', (req, res) => {
 app.post('/api/orders', (req, res) => {
   try {
     const result = atomicPlaceOrder(req.body);
+
+    // Sync order into customer's dedicated SQLite database
+    try {
+      const orderRec = db.prepare('SELECT * FROM orders WHERE id = ?').get(result.order_id);
+      const itemsRec = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(result.order_id);
+      let customerPhoneOrId = req.body.customer_phone;
+      if (!customerPhoneOrId && orderRec && orderRec.customer_id) {
+        const cust = db.prepare('SELECT phone, id FROM users WHERE id = ?').get(orderRec.customer_id);
+        if (cust) customerPhoneOrId = cust.phone || cust.id;
+      }
+      if (customerPhoneOrId) {
+        syncOrderToCustomerDb({ ...orderRec, items: itemsRec }, customerPhoneOrId);
+      }
+    } catch (syncErr) {
+      console.error('Customer DB sync error:', syncErr);
+    }
+
     broadcast('ORDER_CREATED', { order_id: result.order_id, order_number: result.order_number });
     broadcast('INVENTORY_UPDATED', { reason: 'new_order_placed' });
     broadcast('MENU_AVAILABILITY_CHANGED', { reason: 'new_order_placed' });
@@ -1865,6 +1903,93 @@ app.get('/api/reports/export', (req, res) => {
 app.get('/api/audit-logs', (req, res) => {
   const logs = db.prepare('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT 60').all();
   res.json(logs);
+});
+
+// ==========================================
+// 19. CUSTOMER DEDICATED DATABASES API (CRM)
+// ==========================================
+
+// Get all customer databases with summary metadata
+app.get('/api/customers', (req, res) => {
+  try {
+    const mainUsers = db.prepare("SELECT * FROM users WHERE role = 'customer'").all();
+    const customers = listAllCustomerDatabases(mainUsers);
+    res.json(customers);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get individual customer's dedicated SQLite database details (orders, loyalty history, notes)
+app.get('/api/customers/:identifier', (req, res) => {
+  try {
+    const details = getCustomerDbDetails(req.params.identifier);
+    res.json(details);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Adjust customer loyalty in their dedicated SQLite database
+app.post('/api/customers/:identifier/loyalty', (req, res) => {
+  const { change_amount, reason, admin_name } = req.body;
+  if (change_amount === undefined || isNaN(change_amount)) {
+    return res.status(400).json({ error: 'Valid points change amount required' });
+  }
+
+  try {
+    const result = adjustCustomerLoyalty(req.params.identifier, Number(change_amount), reason);
+    if (!result) return res.status(404).json({ error: 'Customer database not found' });
+
+    // Sync to main DB
+    try {
+      db.prepare('UPDATE users SET loyalty_points = ? WHERE phone = ? OR id = ?')
+        .run(result.newBalance, req.params.identifier, req.params.identifier);
+    } catch {}
+
+    logAudit(admin_name || 'Admin', 'admin', 'ADJUST_CUSTOMER_LOYALTY', 'customer_db', req.params.identifier, {
+      change_amount,
+      newBalance: result.newBalance,
+      reason
+    });
+
+    broadcast('CUSTOMER_DATABASE_UPDATED', { identifier: req.params.identifier, action: 'loyalty_adjusted' });
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update customer allergy exclusions in their dedicated SQLite database
+app.patch('/api/customers/:identifier/allergies', (req, res) => {
+  const { allergy_exclusions, admin_name } = req.body;
+  try {
+    const result = updateCustomerAllergies(req.params.identifier, allergy_exclusions || '');
+    if (!result) return res.status(404).json({ error: 'Customer database not found' });
+
+    logAudit(admin_name || 'Admin', 'admin', 'UPDATE_CUSTOMER_ALLERGIES', 'customer_db', req.params.identifier, {
+      allergy_exclusions
+    });
+
+    broadcast('CUSTOMER_DATABASE_UPDATED', { identifier: req.params.identifier, action: 'allergies_updated' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Direct file download of customer's raw dedicated SQLite .db file
+app.get('/api/customers/:identifier/download-db', (req, res) => {
+  try {
+    const filePath = getCustomerDbFilePath(req.params.identifier);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Customer SQLite database file not found' });
+    }
+    const filename = path.basename(filePath);
+    res.download(filePath, filename);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 const PORT = process.env.PORT || 3001;

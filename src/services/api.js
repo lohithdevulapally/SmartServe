@@ -155,6 +155,13 @@ export const api = {
   // Reports Export URL
   getExportUrl: (type, format = 'csv') => `${BASE_URL}/reports/export?type=${type}&format=${format}`,
 
+  // Customer Databases & CRM (Isolated per-customer SQLite databases)
+  getCustomers: () => request('/customers'),
+  getCustomerDbDetails: (idOrPhone) => request(`/customers/${idOrPhone}`),
+  adjustCustomerLoyalty: (idOrPhone, data) => request(`/customers/${idOrPhone}/loyalty`, { method: 'POST', body: JSON.stringify(data) }),
+  updateCustomerAllergies: (idOrPhone, data) => request(`/customers/${idOrPhone}/allergies`, { method: 'PATCH', body: JSON.stringify(data) }),
+  getCustomerDbDownloadUrl: (idOrPhone) => `${BASE_URL}/customers/${idOrPhone}/download-db`,
+
   // Audit Logs
   getAuditLogs: () => request('/audit-logs')
 };
