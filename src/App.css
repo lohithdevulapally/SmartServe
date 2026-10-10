@@ -1,0 +1,10 @@
+/* SmartServe Application-level layout and print utilities */
+@media print {
+  header, footer, .btn, .modal-overlay, #toast-container {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+}

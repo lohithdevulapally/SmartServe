@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fdfbf7" />
+      <stop offset="35%" stop-color="#e6bd88" />
+      <stop offset="70%" stop-color="#c9975b" />
+      <stop offset="100%" stop-color="#8a5824" />
+    </linearGradient>
+    <linearGradient id="darkBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1f1811" />
+      <stop offset="100%" stop-color="#0c0906" />
+    </linearGradient>
+    <filter id="goldGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#c9975b" flood-opacity="0.45" />
+    </filter>
+  </defs>
+  
+  <!-- Outer Rounded Shield / Cloche Base -->
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#darkBg)" stroke="url(#goldGradient)" stroke-width="2.5" />
+  
+  <!-- Inner Culinary Cloche & Spark Icon -->
+  <g filter="url(#goldGlow)" fill="url(#goldGradient)">
+    <!-- Cloche Top Knob -->
+    <circle cx="32" cy="19" r="3.2" />
+    
+    <!-- Cloche Dome -->
+    <path d="M 18 36 C 18 25 24 22 32 22 C 40 22 46 25 46 36 Z" />
+    
+    <!-- Cloche Rim Base -->
+    <rect x="15" y="38" width="34" height="3.5" rx="1.75" />
+    
+    <!-- Fork & Knife crossed below or accent stars -->
+    <path d="M 23 45 L 41 45" stroke="url(#goldGradient)" stroke-width="2" stroke-linecap="round" />
+    <circle cx="32" cy="45" r="1.8" />
+  </g>
+</svg>
